@@ -68,7 +68,7 @@ app.post('/order/:id/charge', (req, res) => {
       }
       return createCustomerSource(customer, tokenId);
     })
-    .then(customer => payOrder(tokenId, customer.id))
+    .then(customer => payOrder(orderId, customer.id))
     .catch(err => {
       console.error(err);
       return res.status(500).json({error: 'Failed to charge customer'});
@@ -181,7 +181,7 @@ function payOrder(orderId, customerId, source) {
  * @returns {Promise}
  */
 function getCustomerById(customerId) {
-  return stripe.customer.retrieve(customerId)
+  return stripe.customers.retrieve(customerId)
     .catch(err => {
       err.message = 'Failed to retrive customer: ' + err.message;
       throw err;
