@@ -94,6 +94,12 @@ app.post('/order/:id/cancel', (req, res) => {
   });
 });
 
+app.post('/webhook', (req, res) => {
+  console.info('Webhook triggered');
+  console.log('request body', res.body);
+  return res.send(200);
+})
+
 
 exports.stripe = functions.https.onRequest(app);
 
