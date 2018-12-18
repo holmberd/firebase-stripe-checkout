@@ -69,9 +69,10 @@ app.post('/order/:id/charge', (req, res) => {
       return createCustomerSource(customer, tokenId);
     })
     .then(customer => payOrder(orderId, customer.id))
+    .then(order => res.json({result: order}))
     .catch(err => {
       console.error(err);
-      return res.status(500).json({error: 'Failed to charge customer'});
+      return res.status(500).json({error: 'Failed to pay order'});
     });
 });
 
@@ -158,14 +159,12 @@ function createOrder(customer, skus) {
  *
  * @param {String} orderId
  * @param {String} customerId
- * @param {String} [source]
  * @throws {Error}
  * @returns {Promise}
  */
-function payOrder(orderId, customerId, source) {
+function payOrder(orderId, customerId) {
   return stripe.orders.pay(orderId, {
-    customer: customerId,
-    source: source || false
+    customer: customerId
   })
   .catch(err => {
     err.message = 'Failed to pay for order: ' + err.message;
