@@ -166,7 +166,7 @@ function checkoutSteamGameKeys(batch, skus) {
  * @returns {Promise}
  */
 function checkoutSteamGameKey(batch, skuId, quantity) {
-  return getSteamKeys(transaction, skuId)
+  return getSteamKeys(skuId)
     .then(steamKeys => {
       if (!steamKeys) {
         throw new Error('sku has no associated steamkey');
