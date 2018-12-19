@@ -94,23 +94,26 @@ app.post('/order/:id/cancel', (req, res) => {
   });
 });
 
+// Check if orderId has already been sent in firestore.
+// Get email and SKUs from request object.
+// Send email and SKUs to AWS SES Topic
+// Set orderId in firestore to sent
 app.post('/webhook', (req, res) => {
   console.info('Webhook triggered');
   if (req.body.hasOwnProperty('id') && req.body.type === 'order.payment_succeeded') {
     const orderId = req.body.data.object.id;
-
     const email = req.body.data.object.email;
     const items = req.body.data.object.items;
     const skus = items.filter(item => {
       return item.type === 'sku';
     });
-    // Check if orderId has already been sent in firestore.
-    // Get email and SKUs from request object.
-    // Send email and SKUs to AWS SES Topic
-    // Set orderId in firestore to sent
+    return processOrder(orderId, skus)
+    .catch(err => {
+      console.error(err);
+    });
   }
   return res.send(200);
-})
+});
 
 
 exports.stripe = functions.https.onRequest(app);
@@ -118,25 +121,163 @@ exports.stripe = functions.https.onRequest(app);
 
 /** Private Methods */
 
-function isOrderProcessed(orderId) {
-  return admin.firestore().collection('orders').doc(orderId).get()
-    .then(doc => {
-      if (doc.exists) {
-        return doc.data().isProcessed;
+function processOrder(orderId, skus) {
+  var keys = null;
+  var batch = admin.firestore().batch();
+  return isOrderProcessed(orderId)
+    .then(isProcessed => {
+      if (isProcessed) {
+        throw new Error('Order already processed');
       }
-      return false;
+      return checkoutSteamGameKeys(batch, skus);
+    })
+    .then(steamKeys => {
+      keys = steamKeys;
+      return createOrderDoc(batch, orderId, {isProcessed: true});
+    })
+    .then(() => batch.commit())
+    .then(() => {
+      console.log('Send steam keys to AWS', keys);
+      return true;
+    })
+    .catch(err => {
+      err.message = 'Failed to process order: ' + err.message;
+      return Promise.reject(err);
+    });
+}
+
+function checkoutSteamGameKeys(batch, skus) {
+  const skuPromises = skus.map(sku => {
+    return checkoutSteamGameKey(batch, sku.parent, sku.quantity);  
+  })
+  return Promise.all(skuPromises)
+    .catch(err => {
+      err.message = 'Failed to checkout Steam game keys: ' + err.message;
+      return Promise.reject(err);
     })
 }
 
+/**
+ * Checkout a steam key from its array of keys.
+ *
+ * @param {Firestore.Batch} batch
+ * @param {String} skuId
+ * @param {Number} quanity
+ * @returns {Promise}
+ */
+function checkoutSteamGameKey(batch, skuId, quantity) {
+  return getSteamkeys(transaction, skuId)
+    .then(steamKeys => {
+      if (!steamKeys) {
+        throw new Error('sku has no associated steamkey');
+      }
+      var keys = [];
+      for (var i = 0; i < quantity; i++) {
+        keys.push(steamKeys.pop());
+      }
+      updateSteamkeys(batch, skuId, steamKeys)
+      return keys;
+    })
+    .catch(err => {
+      err.message = 'Failed to checkout steam key: ' + err.message;
+      return Promise.reject(err);
+    });
+}
+
+/**
+ * Updates all steamkeys for a specific sku id.
+ *
+ * @param {Firestore.Batch} batch
+ * @param {String} skuId
+ * @param {Object[]} keys
+ * @returns {Promise}
+ */
+function updateSteamKeys(batch, skuId, keys) {
+  var steamDoc = admin.firestore().collection('steam').doc(skuId);
+  return batch.update(steamDoc, {keys: keys})
+    .catch(err => {
+      err.message = 'Failed to update steamkeys: ' + err.message;
+      throw err;
+    })
+}
+
+/**
+ * Returns all steamkeys associated with a SKU id.
+ *
+ * @param {String} skuId
+ * @returns {Promise}
+ */
+function getSteamKeys(skuId) {
+  return admin.firestore().collection('steam').doc(skuId)
+    .then(doc => {
+      if (doc.exists) {
+        return doc.data().keys;
+      }
+      return null;
+    })
+    .catch(err => {
+      err.message = 'Failed to retrive steamkeys: ' + err.message;
+      throw err;
+    })
+}
+
+/**
+ * Check wether an order has been processed.
+ *
+ * @param {String} orderId
+ * @returns {Promise}
+ */
+function isOrderProcessed(orderId) {
+  return getOrderDoc(orderId)
+    .then(doc => {
+      if (doc) {
+        return doc.isProcessed;
+      }
+      return false;
+    });
+}
+
+/**
+ * Creates a new order document in firestore.
+ *
+ * @param {Firestore.Batch} batch
+ * @param {String} orderId
+ * @param {Object} data
+ * @returns {Promise}
+ */
+function createOrderDoc(batch, orderId, data) {
+  var orderDoc = admin.firestore().collection('orders').doc(orderId);
+  return batch.set(orderDoc, data)
+    .catch(err => {
+      err.message = 'Failed to create order doc: ' + err.message;
+      throw err;
+    });
+}
+
+/**
+ * Returns an order document from firebase.
+ *
+ * @param {String} orderId
+ * @returns {Promise}
+ */
 function getOrderDoc(orderId) {
- // get order from firestore
+  return admin.firestore().collection('orders').doc(orderId).get()
+    .then(doc => {
+      if (doc.exists) {
+        return doc.data();
+      }
+      return null;
+    })
+    .catch(err => {
+      err.message = 'Failed to retrive order doc: ' + err.message;
+      throw err;
+    })
 }
 
 /**
  * Cancels an order.
  *
  * @param {String} orderId
- * @throws {Error}
  * @returns {Promise}
  */
 function cancelOrder(orderId) {
@@ -149,7 +290,6 @@ function cancelOrder(orderId) {
  * Fetches and returns an order.
  *
  * @param {String} orderId
- * @throws {Error}
  * @returns {Promise}
  */
 function getOrder(orderId) {
@@ -165,7 +305,6 @@ function getOrder(orderId) {
  *
  * @param {Object} customer
  * @param {Object[]} skus
- * @throws {Error}
  * @returns {Promise}
  */
 function createOrder(customer, skus) {
@@ -191,7 +330,6 @@ function createOrder(customer, skus) {
  *
  * @param {String} orderId
  * @param {String} customerId
- * @throws {Error}
  * @returns {Promise}
  */
 function payOrder(orderId, customerId) {
@@ -208,7 +346,6 @@ function payOrder(orderId, customerId) {
  * Gets a customer by id.
  *
  * @param {String} customerId
- * @throws {Error}
  * @returns {Promise}
  */
 function getCustomerById(customerId) {
@@ -223,7 +360,6 @@ function getCustomerById(customerId) {
  * Gets or creates a new customer.
  *
  * @param {String} email
- * @throws {Error}
  * @returns {Promise}
  */
 function getOrCreateCustomer(email) {
@@ -241,7 +377,6 @@ function getOrCreateCustomer(email) {
  * Creates a new customer.
  *
  * @param {String} email
- * @throws {Error}
  * @returns {Promise}
  */
 function createCustomer(email) {
@@ -256,7 +391,6 @@ function createCustomer(email) {
  * Fetches a customer by email.
  *
  * @param {String} email
- * @throws {Error}
  * @returns {Promise}
  */
 function getCustomerByEmail(email) {
@@ -279,7 +413,6 @@ function getCustomerByEmail(email) {
  *
  * @param {String} email
  * @param {String} tokenId
- * @throws {Error}
  * @returns {Promise}
  */
 function createCustomerSource(customer, tokenId) {
