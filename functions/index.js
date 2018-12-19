@@ -101,6 +101,7 @@ app.post('/order/:id/cancel', (req, res) => {
 // Set orderId in firestore to sent
 app.post('/webhook', (req, res) => {
   console.info('Webhook triggered');
+  res.send(200);
   if (req.body.hasOwnProperty('id') && req.body.type === 'order.payment_succeeded') {
     const orderId = req.body.data.object.id;
     const email = req.body.data.object.email;
@@ -113,7 +114,6 @@ app.post('/webhook', (req, res) => {
       console.error(err);
     });
   }
-  return res.send(200);
 });
 
 
