@@ -208,7 +208,7 @@ function updateSteamKeys(batch, skuId, keys) {
  * @returns {Promise}
  */
 function getSteamKeys(skuId) {
-  return admin.firestore().collection('steam').doc(skuId)
+  return admin.firestore().collection('steam').doc(skuId).get()
     .then(doc => {
       if (doc.exists) {
         return doc.data().keys;
