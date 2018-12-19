@@ -111,8 +111,13 @@ app.post('/webhook', (req, res) => {
     });
     console.info('Start processing order');
     return processOrder(orderId, skus)
-      .then(() => console.info('Order processed successfully'))
-      .catch(err => console.error(err));
+      .then(() => {
+        console.info('Order processed successfully');
+        return true;
+      })
+      .catch(err => {
+        console.error(err)
+      });
   }
 });
 
