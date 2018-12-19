@@ -96,7 +96,19 @@ app.post('/order/:id/cancel', (req, res) => {
 
 app.post('/webhook', (req, res) => {
   console.info('Webhook triggered');
-  console.log('request body', res.body);
+  if (req.body.hasOwnProperty('id') && req.body.type === 'order.payment_succeeded') {
+    const orderId = req.body.data.object.id;
+
+    const email = req.body.data.object.email;
+    const items = req.body.data.object.items;
+    const skus = items.filter(item => {
+      return item.type === 'sku';
+    });
+    // Check if orderId has already been sent in firestore.
+    // Get email and SKUs from request object.
+    // Send email and SKUs to AWS SES Topic
+    // Set orderId in firestore to sent
+  }
   return res.send(200);
 })
 
@@ -105,6 +117,20 @@ exports.stripe = functions.https.onRequest(app);
 
 
 /** Private Methods */
+
+function isOrderProcessed(orderId) {
+  return admin.firestore().collection('orders').doc(orderId).get()
+    .then(doc => {
+      if (doc.exists) {
+        return doc.data().isProcessed;
+      }
+      return false;
+    })
+}
+
+function getOrderDoc(orderId) {
+ // get order from firestore
+}
 
 /**
  * Cancels an order.
