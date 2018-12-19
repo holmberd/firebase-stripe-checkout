@@ -49,6 +49,7 @@ app.post('/checkout', (req, res) => {
  */
 app.post('/order/:id/charge', (req, res) => {
   console.info('Charge order id:', req.params.id);
+  console.log('request body', req.body);
   if (!req.body.hasOwnProperty('stripeToken')) {
     return res.status(400).json({error: 'Bad request'});
   }
@@ -194,11 +195,7 @@ function checkoutSteamGameKey(batch, skuId, quantity) {
  */
 function updateSteamKeys(batch, skuId, keys) {
   var steamDoc = admin.firestore().collection('steam').doc(skuId);
-  return batch.update(steamDoc, {keys: keys})
-    .catch(err => {
-      err.message = 'Failed to update steamkeys: ' + err.message;
-      throw err;
-    })
+  return batch.update(steamDoc, {keys: keys});
 }
 
 /**
@@ -247,11 +244,7 @@ function isOrderProcessed(orderId) {
  */
 function createOrderDoc(batch, orderId, data) {
   var orderDoc = admin.firestore().collection('orders').doc(orderId);
-  return batch.set(orderDoc, data)
-    .catch(err => {
-      err.message = 'Failed to create order doc: ' + err.message;
-      throw err;
-    });
+  return batch.set(orderDoc, data);
 }
 
 /**
