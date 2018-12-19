@@ -109,10 +109,10 @@ app.post('/webhook', (req, res) => {
     const skus = items.filter(item => {
       return item.type === 'sku';
     });
+    console.info('Start processing order');
     return processOrder(orderId, skus)
-    .catch(err => {
-      console.error(err);
-    });
+      .then(() => console.info('Order processed successfully'))
+      .catch(err => console.error(err));
   }
 });
 
