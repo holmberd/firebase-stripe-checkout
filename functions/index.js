@@ -183,7 +183,7 @@ function sendRequestToEmailService(body) {
  * @returns {Promise}
  */
 function processOrder(orderId, skus) {
-  var steamKeyItems = {};
+  var products = [];
   var batch = admin.firestore().batch();
   return isOrderProcessed(orderId)
     .then(isProcessed => {
@@ -192,12 +192,12 @@ function processOrder(orderId, skus) {
       }
       return checkoutSteamGameKeys(batch, skus);
     })
-    .then(keyItems => {
-      steamKeyItems = keyItems;
+    .then(steamKeyItems => {
+      products = steamKeyItems;
       return createOrderDoc(batch, orderId, {isProcessed: true});
     })
     .then(() => batch.commit())
-    .then(() => steamKeyItems)
+    .then(() => products)
     .catch(err => {
       err.message = 'Failed to process order: ' + err.message;
       return Promise.reject(err);
@@ -213,10 +213,7 @@ function processOrder(orderId, skus) {
  */
 function checkoutSteamGameKeys(batch, skus) {
   const skuPromises = skus.map(sku => {
-    return {
-      keys: checkoutSteamGameKey(batch, sku.parent, sku.quantity),
-      description: sku.description,
-    };
+    return checkoutSteamGameKey(batch, sku);
   })
   return Promise.all(skuPromises)
     .catch(err => {
@@ -229,11 +226,14 @@ function checkoutSteamGameKeys(batch, skus) {
  * Checkout a steam key from firestore SKU document.
  *
  * @param {Firestore.Batch} batch
- * @param {String} skuId
- * @param {Number} quanity
+ * @param {Object} sku
+ * @param {Number} quantity
  * @returns {Promise}
  */
-function checkoutSteamGameKey(batch, skuId, quantity) {
+function checkoutSteamGameKey(batch, sku) {
+  const skuId = sku.parent;
+  const quantity = sku.quantity;
+  const description = sku.description;
   return getSteamKeys(skuId)
     .then(steamKeys => {
       if (!steamKeys) {
@@ -244,7 +244,11 @@ function checkoutSteamGameKey(batch, skuId, quantity) {
         keys.push(steamKeys.pop());
       }
       updateSteamKeys(batch, skuId, steamKeys)
-      return keys;
+      return {
+        skuId: skuId,
+        description: description,
+        keys: keys
+      };
     })
     .catch(err => {
       err.message = 'Failed to checkout steam key: ' + err.message;
