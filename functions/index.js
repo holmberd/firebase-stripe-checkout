@@ -143,7 +143,6 @@ function sendRequestToEmailService(req, body) {
     url: EMAIL_SERVICE_API,
     method: 'POST',
     headers: {
-      'Access-Control-Allow-Origin' : req.protocol + req.hostname,
       'Accept': 'application/json',
       'Content-Type': 'application/json'
     },
