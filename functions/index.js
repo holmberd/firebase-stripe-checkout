@@ -122,6 +122,7 @@ app.post('/webhook', (req, res) => {
     return processOrder(orderId, skus)
       .then(keyItems => {
         const body = {
+          orderId: orderId,
           email: email,
           items: keyItems
         };
@@ -183,7 +184,7 @@ function sendRequestToEmailService(body) {
  * @returns {Promise}
  */
 function processOrder(orderId, skus) {
-  var products = [];
+  var keyItems = [];
   var batch = admin.firestore().batch();
   return isOrderProcessed(orderId)
     .then(isProcessed => {
@@ -193,11 +194,11 @@ function processOrder(orderId, skus) {
       return checkoutSteamGameKeys(batch, skus);
     })
     .then(steamKeyItems => {
-      products = steamKeyItems;
+      keyItems = steamKeyItems;
       return createOrderDoc(batch, orderId, {isProcessed: true});
     })
     .then(() => batch.commit())
-    .then(() => products)
+    .then(() => keyItems)
     .catch(err => {
       err.message = 'Failed to process order: ' + err.message;
       return Promise.reject(err);
