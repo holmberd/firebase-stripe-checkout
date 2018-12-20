@@ -118,10 +118,10 @@ app.post('/webhook', (req, res) => {
     });
     console.info('Start processing order');
     return processOrder(orderId, skus)
-      .then(keys => {
+      .then(keyItems => {
         const body = {
           email: email,
-          keys: keys
+          items: keyItems
         };
         console.info('Order processed successfully');
         console.info('Sending request to EmailService', body);
@@ -181,7 +181,7 @@ function sendRequestToEmailService(body) {
  * @returns {Promise}
  */
 function processOrder(orderId, skus) {
-  var keys = null;
+  var steamKeyItems = {};
   var batch = admin.firestore().batch();
   return isOrderProcessed(orderId)
     .then(isProcessed => {
@@ -190,21 +190,31 @@ function processOrder(orderId, skus) {
       }
       return checkoutSteamGameKeys(batch, skus);
     })
-    .then(steamKeys => {
-      keys = steamKeys;
+    .then(keyItems => {
+      steamKeyItems = keyItems;
       return createOrderDoc(batch, orderId, {isProcessed: true});
     })
     .then(() => batch.commit())
-    .then(() => keys)
+    .then(() => steamKeyItems)
     .catch(err => {
       err.message = 'Failed to process order: ' + err.message;
       return Promise.reject(err);
     });
 }
 
+/**
+ * Checkout steam keys from the firestore database.
+ *
+ * @param {Firestore.Batch} batch
+ * @param {Object[]} skus
+ * @returns {Promise}
+ */
 function checkoutSteamGameKeys(batch, skus) {
   const skuPromises = skus.map(sku => {
-    return checkoutSteamGameKey(batch, sku.parent, sku.quantity);  
+    return {
+      keys: checkoutSteamGameKey(batch, sku.parent, sku.quantity),
+      description: sku.description,
+    };
   })
   return Promise.all(skuPromises)
     .catch(err => {
@@ -214,7 +224,7 @@ function checkoutSteamGameKeys(batch, skus) {
 }
 
 /**
- * Checkout a steam key from its array of keys.
+ * Checkout a steam key from firestore SKU document.
  *
  * @param {Firestore.Batch} batch
  * @param {String} skuId
