@@ -28,7 +28,7 @@ const EMAIL_SERVICE_API = 'https://lj35xx404i.execute-api.us-west-2.amazonaws.co
  * @returns {Object} - JSON response
  */
 app.post('/checkout', (req, res) => {
-  console.info('Checkout started');
+  console.log('Checkout started');
   if (!req.body.hasOwnProperty('customer') || !req.body.hasOwnProperty('items')) {
     return res.status(400).json({error: 'Bad request'});
   }
@@ -37,7 +37,10 @@ app.post('/checkout', (req, res) => {
 
   return getOrCreateCustomer(customer.email)
     .then(customer => createOrder(customer, skus))
-    .then(order => res.json({result: order}))
+    .then(order => {
+      console.log('Checkout completed');
+      return res.json({result: order})
+    })
     .catch(err => {
       console.error(err);
       return res.status(500).json({error: 'Failed to create customer order'});
@@ -51,7 +54,7 @@ app.post('/checkout', (req, res) => {
  * @returns {Object} - JSON response
  */
 app.post('/order/:id/charge', (req, res) => {
-  console.info('Charge order id:', req.params.id);
+  console.log('Charge order id:', req.params.id);
   console.log('request body', req.body);
   if (!req.body.hasOwnProperty('stripeToken')) {
     return res.status(400).json({error: 'Bad request'});
@@ -73,7 +76,10 @@ app.post('/order/:id/charge', (req, res) => {
       return createCustomerSource(customer, tokenId);
     })
     .then(customer => payOrder(orderId, customer.id))
-    .then(order => res.json({result: order}))
+    .then(order => {
+      console.log('Order charged successfully');
+      return res.json({result: order})
+    })
     .catch(err => {
       console.error(err);
       return res.status(500).json({error: 'Failed to pay order'});
@@ -87,7 +93,7 @@ app.post('/order/:id/charge', (req, res) => {
  * @returns {Object} - JSON response
  */
 app.post('/order/:id/cancel', (req, res) => {
-  console.info('Cancel order id:', req.params.id);
+  console.info('Cancel Order id:', req.params.id);
   const orderId = req.params.id;
   return getOrder(orderId)
   .then(() => cancelOrder(req.params.id))
@@ -103,9 +109,9 @@ app.post('/order/:id/cancel', (req, res) => {
 // Send email and SKUs to AWS SES Topic
 // Set orderId in firestore to sent
 app.post('/webhook', (req, res) => {
-  console.info('Webhook triggered');
-  res.send(200);
+  console.info('Stripe webhook triggered');
   if (req.body.hasOwnProperty('id') && req.body.type === 'order.payment_succeeded') {
+    console.log('Order Payment Succeeded Event');
     const orderId = req.body.data.object.id;
     const email = req.body.data.object.email;
     const items = req.body.data.object.items;
@@ -125,13 +131,14 @@ app.post('/webhook', (req, res) => {
       })
       .then(() => {
         console.info('Request to EmailService was successfull');
-        return true;
+        return res.send(200);
       })
       .catch(err => {
         console.error(err)
+        return res.send(200);
       });
   }
-  return true;
+  return res.send(200);
 });
 
 
@@ -139,7 +146,7 @@ exports.stripe = functions.https.onRequest(app);
 
 /** Private Methods */
 
-function sendRequestToEmailService(req, body) {
+function sendRequestToEmailService(body) {
   return request.post({
     url: EMAIL_SERVICE_API,
     method: 'POST',
