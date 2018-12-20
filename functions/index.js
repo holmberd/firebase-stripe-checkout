@@ -131,6 +131,7 @@ app.post('/webhook', (req, res) => {
         console.error(err)
       });
   }
+  return true;
 });
 
 
