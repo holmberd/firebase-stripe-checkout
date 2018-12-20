@@ -19,8 +19,6 @@ const app = express();
 // TODO: set cors to abgames.io after testing complete.
 app.use(cors({ origin: true }));
 
-const EMAIL_SERVICE_API = 'https://lj35xx404i.execute-api.us-west-2.amazonaws.com/default/abg-es';
-
 /**
  * POST /checkout - Order checkout handler endpoint.
  * Creates and returns a customer order.
@@ -146,22 +144,42 @@ exports.stripe = functions.https.onRequest(app);
 
 /** Private Methods */
 
+/**
+ * Sends a POST request to the EmailService.
+ *
+ * @param {Object} body
+ * @returns {Promise}
+ */
 function sendRequestToEmailService(body) {
-  return request.post({
-    url: EMAIL_SERVICE_API,
+    const requestOpts = {
+    uri: functions.config().api.emailservice,
+    aws: {
+      sign_version: 4,
+      key: functions.config().aws.access_key,
+      secret: functions.config().aws.secret_key,
+      service: 'execute-api',
+    },    
     method: 'POST',
     headers: {
       'Accept': 'application/json',
       'Content-Type': 'application/json'
     },
     json: body
-  })
+  };
+  return request.post(requestOpts)
   .catch(err => {
     err.message = 'Request to EmailService failed: ' + err.message;
     return Promise.reject(err);
   });
 }
 
+/**
+ * Processes an orders product skus.
+ *
+ * @param {String} orderId
+ * @param {Object[]} skus
+ * @returns {Promise}
+ */
 function processOrder(orderId, skus) {
   var keys = null;
   var batch = admin.firestore().batch();
