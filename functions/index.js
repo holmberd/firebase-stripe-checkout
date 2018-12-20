@@ -102,10 +102,12 @@ app.post('/order/:id/cancel', (req, res) => {
   });
 });
 
-// Check if orderId has already been sent in firestore.
-// Get email and SKUs from request object.
-// Send email and SKUs to AWS SES Topic
-// Set orderId in firestore to sent
+/**
+ * POST /webhook - Stripe webhook events handler.
+ * Sends a request to the EmailService on a successfull order payment event.
+ *
+ * @returns {Object} - JSON response
+ */
 app.post('/webhook', (req, res) => {
   console.info('Stripe webhook triggered');
   if (req.body.hasOwnProperty('id') && req.body.type === 'order.payment_succeeded') {
