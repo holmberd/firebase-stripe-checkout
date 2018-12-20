@@ -8,6 +8,7 @@ admin.initializeApp();
 const settings = {timestampsInSnapshots: true};
 admin.firestore().settings(settings);
 
+const request = require('request-promise-native');
 const express = require('express');
 const cors = require('cors');
 const stripeKey = functions.config().stripe.testkey;
@@ -17,6 +18,8 @@ const app = express();
 
 // TODO: set cors to abgames.io after testing complete.
 app.use(cors({ origin: true }));
+
+const EMAIL_SERVICE_API = 'https://lj35xx404i.execute-api.us-west-2.amazonaws.com/default/abg-es';
 
 /**
  * POST /checkout - Order checkout handler endpoint.
@@ -111,8 +114,17 @@ app.post('/webhook', (req, res) => {
     });
     console.info('Start processing order');
     return processOrder(orderId, skus)
-      .then(() => {
+      .then(keys => {
+        const body = {
+          email: email,
+          keys: keys
+        };
         console.info('Order processed successfully');
+        console.info('Sending request to EmailService', body);
+        return sendRequestToEmailService(body);
+      })
+      .then(() => {
+        console.info('Request to EmailService was successfull');
         return true;
       })
       .catch(err => {
@@ -124,8 +136,24 @@ app.post('/webhook', (req, res) => {
 
 exports.stripe = functions.https.onRequest(app);
 
-
 /** Private Methods */
+
+function sendRequestToEmailService(req, body) {
+  return request.post({
+    url: EMAIL_SERVICE_API,
+    method: 'POST',
+    headers: {
+      'Access-Control-Allow-Origin' : req.protocol + req.hostname,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    json: body
+  })
+  .catch(err => {
+    err.message = 'Request to EmailService failed: ' + err.message;
+    return Promise.reject(err);
+  });
+}
 
 function processOrder(orderId, skus) {
   var keys = null;
@@ -142,10 +170,7 @@ function processOrder(orderId, skus) {
       return createOrderDoc(batch, orderId, {isProcessed: true});
     })
     .then(() => batch.commit())
-    .then(() => {
-      console.log('Send steam keys to AWS', keys);
-      return true;
-    })
+    .then(() => keys)
     .catch(err => {
       err.message = 'Failed to process order: ' + err.message;
       return Promise.reject(err);
