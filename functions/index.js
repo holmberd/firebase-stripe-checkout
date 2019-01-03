@@ -1,10 +1,14 @@
-/*jshint esversion: 6 */
+/**
+ * API for handling Stripe product order checkout and payments
+ * Author: Dag Holmberg
+ * Date: 2019-01-03
+ */
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
-/** Firestore settings */
+/** Firestore Settings */
 const settings = {timestampsInSnapshots: true};
 admin.firestore().settings(settings);
 
@@ -16,8 +20,8 @@ const stripe = require('stripe')(stripeKey);
 
 const app = express();
 
-// TODO: set cors to abgames.io after testing complete.
-app.use(cors({ origin: true }));
+// TODO: set cors to domain for running in production.
+app.use(cors({origin: true}));
 
 /**
  * POST /checkout - Order checkout handler endpoint.
