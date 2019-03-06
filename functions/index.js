@@ -218,11 +218,11 @@ function processOrder(orderId, skus) {
  */
 function checkoutKeys(batch, skus) {
   const skuPromises = skus.map(sku => {
-    return checkoutGameKey(batch, sku);
+    return checkoutKey(batch, sku);
   })
   return Promise.all(skuPromises)
     .catch(err => {
-      err.message = 'Failed to checkout game keys: ' + err.message;
+      err.message = 'Failed to checkout keys: ' + err.message;
       return Promise.reject(err);
     })
 }
