@@ -281,7 +281,7 @@ function updateKeys(batch, skuId, keys) {
  * @returns {Promise}
  */
 function getKeys(skuId) {
-  return admin.firestore().collection('keys').doc(skuId).get()
+  return admin.firestore().collection('skus').doc(skuId).get()
     .then(doc => {
       if (doc.exists) {
         return doc.data().keys;
