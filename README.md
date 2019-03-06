@@ -25,4 +25,21 @@ Stripe Service API that handles Stripe order creation, checkout and processing.
 4. Service API webhook endpoint is triggered from Stripe with `orderId` and order processing is started.
 5. Order processing checkout keys from Firestore based on product SKU and quantity in order.
   - This is performed as a batch since we want to return keys to Firestore if something fails.
+  - Processed orders are stored in the Firestore `orders` collection.
 6. Keys are checked out and sent in request to Email Service Endpoint for delivery.
+
+## Collections
+
+### SKUs
+```js
+{ 
+  "skus": {
+    "sku_E5XI0qzHKWPdJQ": { 
+      "keys": [
+        "C5YFR-XEE29-V3CP8",
+        "E9B98-LG43D-9QP3K"
+       ]
+    }
+  }
+}
+```
