@@ -188,21 +188,21 @@ function sendRequestToEmailService(body) {
  * @returns {Promise}
  */
 function processOrder(orderId, skus) {
-  var keyItems = [];
+  var items = [];
   var batch = admin.firestore().batch();
   return isOrderProcessed(orderId)
     .then(isProcessed => {
       if (isProcessed) {
         throw new Error('Order already processed');
       }
-      return checkoutSteamGameKeys(batch, skus);
+      return checkoutKeys(batch, skus);
     })
-    .then(steamKeyItems => {
-      keyItems = steamKeyItems;
+    .then(keyItems => {
+      items = keyItems;
       return createOrderDoc(batch, orderId, {isProcessed: true});
     })
     .then(() => batch.commit())
-    .then(() => keyItems)
+    .then(() => items)
     .catch(err => {
       err.message = 'Failed to process order: ' + err.message;
       return Promise.reject(err);
@@ -210,78 +210,78 @@ function processOrder(orderId, skus) {
 }
 
 /**
- * Checkout steam keys from the firestore database.
+ * Checkout keys from the firestore database.
  *
  * @param {Firestore.Batch} batch
  * @param {Object[]} skus
  * @returns {Promise}
  */
-function checkoutSteamGameKeys(batch, skus) {
+function checkoutKeys(batch, skus) {
   const skuPromises = skus.map(sku => {
-    return checkoutSteamGameKey(batch, sku);
+    return checkoutGameKey(batch, sku);
   })
   return Promise.all(skuPromises)
     .catch(err => {
-      err.message = 'Failed to checkout Steam game keys: ' + err.message;
+      err.message = 'Failed to checkout game keys: ' + err.message;
       return Promise.reject(err);
     })
 }
 
 /**
- * Checkout a steam key from firestore SKU document.
+ * Checkout a key from firestore SKU document.
  *
  * @param {Firestore.Batch} batch
  * @param {Object} sku
  * @param {Number} quantity
  * @returns {Promise}
  */
-function checkoutSteamGameKey(batch, sku) {
+function checkoutKey(batch, sku) {
   const skuId = sku.parent;
   const quantity = sku.quantity;
   const description = sku.description;
-  return getSteamKeys(skuId)
-    .then(steamKeys => {
-      if (!steamKeys) {
-        throw new Error('sku has no associated steamkey');
+  return getKeys(skuId)
+    .then(keys => {
+      if (!keys) {
+        throw new Error('sku has no associated key');
       }
-      var keys = [];
+      var _keys = [];
       for (var i = 0; i < quantity; i++) {
-        keys.push(steamKeys.pop());
+        _keys.push(keys.pop());
       }
-      updateSteamKeys(batch, skuId, steamKeys)
+      updatekeys(batch, skuId, keys)
       return {
         skuId: skuId,
         description: description,
-        keys: keys
+        keys: _keys
       };
     })
     .catch(err => {
-      err.message = 'Failed to checkout steam key: ' + err.message;
+      err.message = 'Failed to checkout key: ' + err.message;
       return Promise.reject(err);
     });
 }
 
 /**
- * Updates all steamkeys for a specific sku id.
+ * Updates all keys for a specific sku id.
  *
  * @param {Firestore.Batch} batch
  * @param {String} skuId
  * @param {Object[]} keys
  * @returns {Promise}
  */
-function updateSteamKeys(batch, skuId, keys) {
-  var steamDoc = admin.firestore().collection('steam').doc(skuId);
-  return batch.update(steamDoc, {keys: keys});
+function updateKeys(batch, skuId, keys) {
+  var doc = admin.firestore().collection('keys').doc(skuId);
+  return batch.update(doc, {keys: keys});
 }
 
 /**
- * Returns all steamkeys associated with a SKU id.
+ * Returns all keys associated with a SKU id.
  *
  * @param {String} skuId
  * @returns {Promise}
  */
-function getSteamKeys(skuId) {
-  return admin.firestore().collection('steam').doc(skuId).get()
+function getKeys(skuId) {
+  return admin.firestore().collection('keys').doc(skuId).get()
     .then(doc => {
       if (doc.exists) {
         return doc.data().keys;
@@ -289,13 +289,13 @@ function getSteamKeys(skuId) {
       return null;
     })
     .catch(err => {
-      err.message = 'Failed to retrive steamkeys: ' + err.message;
+      err.message = 'Failed to retrive keys: ' + err.message;
       throw err;
     })
 }
 
 /**
- * Check wether an order has been processed.
+ * Checks wether an order has been processed.
  *
  * @param {String} orderId
  * @returns {Promise}
