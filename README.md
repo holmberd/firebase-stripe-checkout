@@ -1,5 +1,5 @@
 ## Firebase Stripe Checkout
-Stripe Service API that handles Stripe order creation, checkout and processing.
+Stripe Service API that handles Stripe checkout, order creation and processing.
 
 ## Prerequisites
 - Stripe
