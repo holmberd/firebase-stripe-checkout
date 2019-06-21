@@ -22,7 +22,7 @@ Stripe Service API that handles Stripe checkout, order creation and processing.
 
 ## Flow
 1. Order is created from client.
-2. User is charged for order products and payment is successfull.
+2. User is charged for order products and payment is successful.
   - Customer is created in Stripe
   - Payment source is added to customer
   - Customer is charged for order
